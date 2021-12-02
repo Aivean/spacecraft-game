@@ -21,7 +21,9 @@ object Ship {
     }
   }
 
-  abstract class Cell(val maxDurability: Float) extends Destructible {
+  abstract class Cell(val maxDurability: Float) extends Destructible with Cloneable {
+    type Self <: Cell
+
     var durability = maxDurability
 
     override def detached: Boolean = durability <= maxDurability / 3
@@ -33,12 +35,17 @@ object Ship {
     }
 
     override def healthPercent: Float = MathUtils.clamp(durability / maxDurability, 0, 1)
+
+    override final def clone(): Cell = super.clone().asInstanceOf[Self]
   }
 
-  class Hull(maxDurability: Float) extends Cell(maxDurability)
+  class Hull(maxDurability: Float) extends Cell(maxDurability) {
+    override type Self = this.type
+  }
 
   class Thruster(val maxPower: Float, maxDurability: Float) extends Cell(maxDurability) {
     var active = false
+    override type Self = this.type
   }
 
   object ShipRenderer {
@@ -46,6 +53,7 @@ object Ship {
      * Renders the given cell using ShapeRenderer
      * Assumes that cell center is 0.0 and cell occupies square with
      * width and height of 1 (one)
+     *
      * @param shape
      */
     def render(shape: ShapeRenderer, cell: Cell): Unit = {
@@ -71,6 +79,7 @@ object Ship {
 
     /**
      * Returns fixture def for rectangle cell of 1x1 size pointing upwards
+     *
      * @param cell
      * @return
      */

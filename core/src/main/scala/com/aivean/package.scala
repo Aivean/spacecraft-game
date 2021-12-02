@@ -203,4 +203,8 @@ package object gdxscala {
 
     rec(fixtures.toSet, Set.empty)
   }
+
+  @inline implicit class RichVector2(val v:Vector2) extends AnyVal {
+    @inline def tuple = (v.x, v.y)
+  }
 }
