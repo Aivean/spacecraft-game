@@ -8,7 +8,7 @@ A basic 2d space shooter sandbox, cobbled together in a couple of days.
 
 * Everything is destructible
 * Physics
-* Customizable ship
+* Tile-based ship constructor
 * Lasers and railguns
 * Infinite pseudo-random stars with parallax!
 
