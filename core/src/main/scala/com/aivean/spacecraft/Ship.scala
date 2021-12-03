@@ -52,6 +52,11 @@ object Ship {
     override type Self = this.type
   }
 
+  class Railgun(val delay: Float, val tSpeed: Float, maxDurability: Float) extends Cell(maxDurability) {
+    var timer = 0.0
+    override type Self = this.type
+  }
+
   object ShipRenderer {
     /**
      * Renders the given cell using ShapeRenderer
@@ -79,6 +84,16 @@ object Ship {
           shape.setColor(Color.YELLOW)
           shape.set(ShapeType.Filled)
           shape.triangle(-0.2f, -0.5f, 0f, 0.5f, 0.2f, -0.5f)
+
+        case r: Railgun =>
+          shape.setColor(Color.YELLOW)
+          shape.set(ShapeType.Filled)
+          shape.filledPoly(Array[Vector2](
+            (-0.5f, -0.5f),
+            (-0.3f, 0.5f),
+            (0.3f, 0.5f),
+            (0.5f, -0.5f)
+          ))
       }
     }
   }
@@ -94,20 +109,24 @@ object Ship {
     def createFixture(x: Float, y: Float, cell: Cell): FixtureDef = {
       val f = new FixtureDef
       f.density = 1
-      cell match {
-        case h: Hull =>
-          val p = new PolygonShape()
-          p.setAsBox(0.5f, 0.5f, (x, y), 0)
-          f.shape = p
-        case t: Thruster =>
-          val p = new PolygonShape()
-          p.set(Array[Vector2]((0, 0.5), (-0.5, -0.5), (0.5, -0.5)).map(_.cpy().add(x, y)))
-          f.shape = p
-        case l: Laser =>
-          val p = new PolygonShape()
-          p.set(Array[Vector2]((0, 0.5), (-0.2, -0.5), (0.2, -0.5)).map(_.cpy().add(x, y)))
-          f.shape = p
-      }
+        val p = new PolygonShape()
+        f.shape = cell match {
+          case h: Hull =>
+            p.setAsBox(0.5f, 0.5f, (x, y), 0)
+            p
+          case t: Thruster =>
+            p.set(Array[Vector2]((0, 0.5), (-0.5, -0.5), (0.5, -0.5)).map(_.cpy().add(x, y)))
+            p
+          case l: Laser =>
+            val p = new PolygonShape()
+            p.set(Array[Vector2]((0, 0.5), (-0.2, -0.5), (0.2, -0.5)).map(_.cpy().add(x, y)))
+            p
+          case r: Railgun =>
+            p.set(Array[Vector2](
+              (-0.5f, -0.5f), (-0.3f, 0.5f), (0.3f, 0.5f), (0.5f, -0.5f)
+            ).map(_.cpy().add(x, y)))
+            p
+        }
       f
     }
   }

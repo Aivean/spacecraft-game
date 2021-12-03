@@ -1,7 +1,8 @@
 package com.aivean.spacecraft
 
 import com.aivean.StageScreen
-import com.aivean.spacecraft.Ship.{Cell, Hull, Laser, Thruster}
+import com.aivean.spacecraft.GameScreen.{camera, font, normalProjection, spriteBatch}
+import com.aivean.spacecraft.Ship.{Cell, Hull, Laser, Railgun, Thruster}
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.graphics.Pixmap.Format
@@ -9,6 +10,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType
 import com.badlogic.gdx.graphics.{Color, GL20, Pixmap, Texture}
+import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle
 import com.badlogic.gdx.scenes.scene2d.ui.{Image, Skin, Table, TextButton}
@@ -46,7 +48,12 @@ object ConstructorScreen extends StageScreen {
       override val cell: Cell = new Laser(1f, 30)
     }
 
-    val values = Seq(HULL, THRUSTER, LASER)
+    case object RAILGUN extends CellType {
+      override val name: String = "Railgun"
+      override val cell: Cell = new Railgun(0.3f, 50, 30)
+    }
+
+    val values = Seq(HULL, THRUSTER, LASER, RAILGUN)
   }
 
   var cursor: Option[CellType] = Some(CellType.HULL)
@@ -54,6 +61,8 @@ object ConstructorScreen extends StageScreen {
   var cells: Map[(Int, Int), Ship.Cell] = Map(
     (-1, 2) -> CellType.LASER,
     (0, 2) -> CellType.LASER,
+    (-2, 0) -> CellType.RAILGUN,
+    (1, 0) -> CellType.RAILGUN,
     (-1, -1) -> CellType.HULL,
     (-1, -2) -> CellType.HULL,
     (-1, -3) -> CellType.THRUSTER,
@@ -61,15 +70,13 @@ object ConstructorScreen extends StageScreen {
     (-1, 1) -> CellType.HULL,
     (-2, -1) -> CellType.HULL,
     (-2, -2) -> CellType.THRUSTER,
-    (-2, 0) -> CellType.HULL,
     (0, -1) -> CellType.HULL,
     (0, -2) -> CellType.HULL,
     (0, -3) -> CellType.THRUSTER,
     (0, 0) -> CellType.HULL,
     (0, 1) -> CellType.HULL,
     (1, -1) -> CellType.HULL,
-    (1, -2) -> CellType.THRUSTER,
-    (1, 0) -> CellType.HULL
+    (1, -2) -> CellType.THRUSTER
   ).mapValues(_.cellFactory)
 
 
@@ -176,8 +183,7 @@ object ConstructorScreen extends StageScreen {
     }
 
     if (Gdx.input.isTouched && !tableHit) {
-      val w = getViewport.unproject(Gdx.input.getX, Gdx.input.getY)
-      val key = (math.floor(w.x / cellSize).toInt, math.floor(w.y / cellSize).toInt)
+      val key: (Int, Int) = getCursorCellKey
 
       cursor match {
         case Some(ct) => cells += key -> ct.cellFactory
@@ -186,6 +192,7 @@ object ConstructorScreen extends StageScreen {
     }
 
     if (!tableHit) {
+      drawCellCoords()
       drawCursor()
     }
 
@@ -197,6 +204,12 @@ object ConstructorScreen extends StageScreen {
     draw()
 
     drawLabels()
+  }
+
+  def getCursorCellKey = {
+    val w = getViewport.unproject(Gdx.input.getX, Gdx.input.getY)
+    val key = (math.floor(w.x / cellSize).toInt, math.floor(w.y / cellSize).toInt)
+    key
   }
 
   def drawCells(): Unit = {
@@ -238,6 +251,14 @@ object ConstructorScreen extends StageScreen {
     drawCellType(cursor)
     shape.identity()
     shape.end()
+  }
+
+  def drawCellCoords(): Unit ={
+    spriteBatch.begin()
+    spriteBatch.setProjectionMatrix(new Matrix4().setToOrtho2D(0, 0, camera.viewportWidth, camera.viewportHeight))
+    font.setColor(Color.LIGHT_GRAY)
+    font.draw(spriteBatch, getCursorCellKey.toString(), 0, camera.viewportHeight)
+    spriteBatch.end()
   }
 
   def drawLabels(): Unit = {

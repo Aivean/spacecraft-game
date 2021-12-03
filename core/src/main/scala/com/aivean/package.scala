@@ -163,7 +163,7 @@ package object gdxscala {
   }
 
   @inline implicit class RichShapeRenderer(val r:ShapeRenderer) extends AnyVal {
-    def filledPoly(vertices:collection.Seq[Vector2]) = {
+    def filledPoly(vertices:Iterable[Vector2]) = {
       val h = vertices.head
       vertices.tail.sliding(2).foreach {
         case collection.Seq(a, b) =>

@@ -70,7 +70,7 @@ object WorldInitialization {
     }
   }
 
-  def createTorpedo(p:Vector2, angle:Float)(implicit world:World): Unit = {
+  def createTorpedo(p:Vector2, angle:Float, speed: Float)(implicit world:World): Unit = {
     val body = world.createBody {
       val bd = new BodyDef
       bd.`type` = BodyType.DynamicBody
@@ -78,7 +78,7 @@ object WorldInitialization {
       bd.bullet = true
       bd.linearDamping = 0.1f
       bd.angularDamping = 0.1f
-      bd.linearVelocity.set((0, 50f).rotateRad(angle))
+      bd.linearVelocity.set((0, speed).rotateRad(angle))
       bd.angle = angle
       bd.position.set(p)
       bd

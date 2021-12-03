@@ -1,7 +1,7 @@
 package com.aivean.spacecraft
 
 import com.aivean.spacecraft.Model.Destructible
-import com.aivean.spacecraft.Ship.{Cell, CellUserData, Laser, Thruster}
+import com.aivean.spacecraft.Ship._
 import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
@@ -16,6 +16,7 @@ import com.gdxscala._
 import net.dermetfan.gdx.physics.box2d
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 import scala.util.Random
 
 object GameScreen extends ScreenAdapter {
@@ -83,7 +84,7 @@ object GameScreen extends ScreenAdapter {
       body
     }
 
-    var torpedoTimer = 0f
+    var timer = 0.0
 
     var meta: Ship = _
 
@@ -105,7 +106,15 @@ object GameScreen extends ScreenAdapter {
       def right = lr._2
     }
 
-    var lasers: Seq[CellUserData[Laser]] = _
+    def cells[T <: Cell](implicit ct: ClassTag[T]) =
+      meta.cells.collect {
+        case c: CellUserData[T] if !c.cell.detached && ct.runtimeClass.isAssignableFrom(c.cell.getClass) =>
+          c
+      }
+
+    def lasers = cells[Laser]
+
+    def railguns = cells[Railgun]
 
     def forwardVector = Vector2.Y.cpy().rotateRad(body.getAngle)
   }
@@ -140,14 +149,11 @@ object GameScreen extends ScreenAdapter {
     ship.thrusters.all = ship.meta.cells.collect {
       case ud: CellUserData[Thruster] if ud.cell.isInstanceOf[Thruster] => ud
     }
-
-    ship.lasers = ship.meta.cells.collect {
-      case ud: CellUserData[Laser] if ud.cell.isInstanceOf[Laser] => ud
-    }
   }
 
   override def render(delta: Float): Unit = {
     stepWorld(delta)
+    ship.timer += delta
 
     camera.position.x = MathUtils.clamp(camera.position.x,
       ship.body.getPosition.x - 10, ship.body.getPosition.x + 10)
@@ -171,31 +177,29 @@ object GameScreen extends ScreenAdapter {
 
       val cursorWorldP: Vector2 = camera.unproject((Gdx.input.getX, Gdx.input.getY, 0))
 
-      ship.lasers.foreach {
-        case laser if !laser.cell.detached =>
-          val sp = ship.body.getWorldPoint(laser.x, laser.y)
-          val p = cursorWorldP.cpy()
+      ship.lasers.foreach { laser =>
+        val sp = ship.body.getWorldPoint(laser.x, laser.y + 0.5)
+        val p = cursorWorldP.cpy()
 
-          p.sub(sp).nor().scl(1000).add(sp)
-          shapes.setProjectionMatrix(camera.combined)
-          shapes.begin(ShapeType.Line)
-          shapes.identity()
+        p.sub(sp).nor().scl(1000).add(sp)
+        shapes.setProjectionMatrix(camera.combined)
+        shapes.begin(ShapeType.Line)
+        shapes.identity()
 
-          val body = world.rayClosest(sp, p, _.getBody != ship.body)
+        val body = world.rayClosest(sp, p, _.getBody != ship.body)
 
-          body.foreach {
-            case (f, p) =>
-              shapes.setColor(Color.RED)
-              shapes.identity()
-              shapes.circle(p.x, p.y, 0.1f, 6)
-              breaks += Break(Seq(p), f, 1f)
-          }
+        body.foreach {
+          case (f, p) =>
+            shapes.setColor(Color.RED)
+            shapes.identity()
+            shapes.circle(p.x, p.y, 0.1f, 6)
+            breaks += Break(Seq(p), f, 1f)
+        }
 
-          shapes.setColor(Color.YELLOW)
-          shapes.line(sp, body.map(_._2).getOrElse(p))
+        shapes.setColor(Color.YELLOW)
+        shapes.line(sp, body.map(_._2).getOrElse(p))
 
-          shapes.end()
-        case _ =>
+        shapes.end()
       }
     }
 
@@ -214,17 +218,14 @@ object GameScreen extends ScreenAdapter {
       SpaceCraftGame.menu()
     }
 
-    if (Gdx.input.isKeyPressed(Keys.SPACE) && ship.torpedoTimer <= 0f) {
-      val cx = ship.body.getLocalCenter.x
-      ship.body.getFixtureList.map(_.getShape.center).sortBy(p => (-p.y, math.abs(cx - p.x))).headOption.foreach {
-        p =>
-          p.add(0, 1.1f)
-          val w = ship.body.getWorldPoint(p)
-          WorldInitialization.createTorpedo(w, ship.body.getAngle)
+    if (Gdx.input.isKeyPressed(Keys.SPACE)) {
+      ship.railguns.foreach { rg =>
+        if (ship.timer > rg.cell.timer + rg.cell.delay) {
+          val w = ship.body.getWorldPoint(rg.x, rg.y + 1.1f)
+          WorldInitialization.createTorpedo(w, ship.body.getAngle, rg.cell.tSpeed)
+          rg.cell.timer = ship.timer
+        }
       }
-      ship.torpedoTimer = 0.3f
-    } else {
-      ship.torpedoTimer = (ship.torpedoTimer - delta) max 0f
     }
   }
 
