@@ -53,7 +53,7 @@ object ConstructorScreen extends StageScreen {
     (1, -1) -> CellType.Hull,
     (1, -2) -> CellType.Thruster,
     (1, 0) -> CellType.Hull
-  ).mapValues(shipCompFactory)
+  ).mapValues(shipCompFactory).mapValues(_.clone())
 
 
   private val skin = {
@@ -79,6 +79,7 @@ object ConstructorScreen extends StageScreen {
     textButtonStyle.checked = skin.newDrawable("white", Color.BLUE)
     textButtonStyle.over = skin.newDrawable("white", Color.LIGHT_GRAY)
     textButtonStyle.font = skin.getFont("default")
+    textButtonStyle.font.setUseIntegerPositions(false)
     skin.add("default", textButtonStyle)
 
     val labelStyle = new LabelStyle(skin.getFont("default"), Color.WHITE)

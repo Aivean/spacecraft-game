@@ -3,12 +3,14 @@ package com.aivean.spacecraft
 import com.aivean.spacecraft.Model.Destructible
 import com.aivean.spacecraft.Ship.{Cell, CellUserData, Thruster}
 import com.badlogic.gdx.Input.Keys
+import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType
 import com.badlogic.gdx.graphics.{Color, GL20, OrthographicCamera}
-import com.badlogic.gdx.math.{MathUtils, Vector2, Vector3}
+import com.badlogic.gdx.math.{MathUtils, Matrix4, Vector2, Vector3}
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType
 import com.badlogic.gdx.physics.box2d._
+import com.badlogic.gdx.scenes.scene2d.ui.Skin
 import com.badlogic.gdx.{Gdx, ScreenAdapter}
 import com.gdxscala._
 import net.dermetfan.gdx.physics.box2d
@@ -23,21 +25,26 @@ object GameScreen extends ScreenAdapter {
   val debugRenderer = //new Box2DDebugRenderer(true, true, false, true, true, true)
     new Box2DDebugRenderer()
   val shapes = new ShapeRenderer()
+  val spriteBatch = new SpriteBatch()
+  val skin = new Skin(Gdx.files.internal("skin/uiskin.json"))
+  val font = skin.getFont("default-font")
+  font.getData.setScale(0.05f)
+  font.setUseIntegerPositions(false);
 
   val stars: Array[(Float, Float)] = (1 to 4000).map {
     _ => (Random.nextFloat() * 200 - 100, Random.nextFloat() * 200 - 100)
   }.toArray
 
-  def getDestructible(f:Fixture): Option[Destructible] = f.getUserData match {
+  def getDestructible(f: Fixture): Option[Destructible] = f.getUserData match {
     case null => None
-    case c:CellUserData[Cell] => c.getDestructible
-    case d:Destructible => Some(d)
+    case c: CellUserData[Cell] => c.getDestructible
+    case d: Destructible => Some(d)
     case _ => None
   }
 
   WorldInitialization.createAsteroids(world)
 
-  case class Break(p:Seq[Vector2], f:Fixture, force:Float)
+  case class Break(p: Seq[Vector2], f: Fixture, force: Float)
 
   val breaks = new GdxWrappedArray[Break]()
 
@@ -46,12 +53,15 @@ object GameScreen extends ScreenAdapter {
       val p = contact.getWorldManifold.getPoints
       val i = impulse.getNormalImpulses.map(math.abs).sum
 
-      for(f <- Array(contact.getFixtureA, contact.getFixtureB); d <- getDestructible(f)) {
+      for (f <- Array(contact.getFixtureA, contact.getFixtureB); d <- getDestructible(f)) {
         breaks += Break(p, f, i)
       }
     }
+
     override def endContact(contact: Contact): Unit = {}
+
     override def beginContact(contact: Contact): Unit = {}
+
     override def preSolve(contact: Contact, oldManifold: Manifold): Unit = {}
   })
 
@@ -75,10 +85,10 @@ object GameScreen extends ScreenAdapter {
 
     var torpedoTimer = 0f
 
-    var meta:Ship = _
+    var meta: Ship = _
 
     val thrusters = new {
-      var all:Seq[CellUserData[Thruster]] = _
+      var all: Seq[CellUserData[Thruster]] = _
 
       private def lr = {
         val centerX = body.getLocalCenter.x
@@ -91,6 +101,7 @@ object GameScreen extends ScreenAdapter {
       }
 
       def left = lr._1
+
       def right = lr._2
     }
 
@@ -101,13 +112,13 @@ object GameScreen extends ScreenAdapter {
     ship.body.getFixtureList.toList.foreach(f => f.getBody.destroyFixture(f))
 
     for (f <- world.fixtures; d <- Option(f.getUserData)) {
-        d match {
-          case CellUserData(_, _ ,c) =>
-            f.setUserData(new Cell(c.maxDurability){
-              durability = c.durability
-            })
-          case _ =>
-        }
+      d match {
+        case CellUserData(_, _, c) =>
+          f.setUserData(new Cell(c.maxDurability) {
+            durability = c.durability
+          })
+        case _ =>
+      }
     }
 
     ship.meta = new Ship(ConstructorScreen.cells.toList.map {
@@ -125,7 +136,7 @@ object GameScreen extends ScreenAdapter {
     }
 
     ship.thrusters.all = ship.meta.cells.collect {
-      case ud:CellUserData[Thruster] if ud.cell.isInstanceOf[Thruster] => ud
+      case ud: CellUserData[Thruster] if ud.cell.isInstanceOf[Thruster] => ud
     }
   }
 
@@ -147,6 +158,8 @@ object GameScreen extends ScreenAdapter {
     drawShip()
     drawHealth2()
     drawHealth()
+    drawFps()
+    drawHints()
 
     if (Gdx.input.isTouched) {
       val p = camera.unproject((Gdx.input.getX, Gdx.input.getY, 0))
@@ -195,20 +208,39 @@ object GameScreen extends ScreenAdapter {
     }
   }
 
+  private def normalProjection = new Matrix4().setToOrtho2D(0, 0, camera.viewportWidth, camera.viewportHeight)
+
+  def drawFps(): Unit = {
+    spriteBatch.begin()
+    spriteBatch.setProjectionMatrix(normalProjection)
+    font.setColor(Color.LIGHT_GRAY)
+    font.draw(spriteBatch, "FPS=" + Gdx.graphics.getFramesPerSecond, 0, camera.viewportHeight)
+    spriteBatch.end()
+  }
+
+  def drawHints(): Unit = {
+    spriteBatch.begin()
+    spriteBatch.setProjectionMatrix(normalProjection)
+    font.setColor(Color.LIGHT_GRAY)
+    font.draw(spriteBatch,
+      "Arrows: move, Spacebar: railgun, Mouse: laser, Enter: dock", 0, font.getLineHeight)
+    spriteBatch.end()
+  }
+
   def drawStars(): Unit = {
     shapes.begin(ShapeType.Point)
     shapes.setColor(Color.WHITE)
     shapes.setProjectionMatrix(camera.combined)
 
     stars.foreach {
-      case (x, y)  if camera.frustum.pointInFrustum(x, y, 0) =>
+      case (x, y) if camera.frustum.pointInFrustum(x, y, 0) =>
         shapes.point(x, y, 0)
       case _ =>
     }
     shapes.end()
   }
 
-  def processBreaks(d:Float): Unit = {
+  def processBreaks(d: Float): Unit = {
     shapes.setProjectionMatrix(camera.combined)
     shapes.begin(ShapeType.Line)
     shapes.setColor(Color.RED)
@@ -242,7 +274,7 @@ object GameScreen extends ScreenAdapter {
               f.getBody.destroyFixture(f)
               splitCandidates += f.getBody
             }
-          } else if (d.detached &&  fixturesSize > 1) {
+          } else if (d.detached && fixturesSize > 1) {
             extractFixtures(Seq(f))
             splitCandidates += f.getBody
           }
@@ -256,7 +288,7 @@ object GameScreen extends ScreenAdapter {
     )
   }
 
-  def drawCells(shapeType:ShapeType = ShapeType.Filled)(draw:(ShapeRenderer, CellUserData[Cell]) => Unit): Unit = {
+  def drawCells(shapeType: ShapeType = ShapeType.Filled)(draw: (ShapeRenderer, CellUserData[Cell]) => Unit): Unit = {
     shapes.setProjectionMatrix(camera.combined)
     shapes.begin(ShapeType.Filled)
     shapes.setAutoShapeType(true)
@@ -300,7 +332,7 @@ object GameScreen extends ScreenAdapter {
 
     val fixtures = {
       val (coordsX, coordsY) = Seq[Vector2](
-        (0, 0), (Gdx.graphics.getWidth, 0),(Gdx.graphics.getWidth, Gdx.graphics.getHeight), (0, Gdx.graphics.getHeight))
+        (0, 0), (Gdx.graphics.getWidth, 0), (Gdx.graphics.getWidth, Gdx.graphics.getHeight), (0, Gdx.graphics.getHeight))
         .map(x => x: Vector3).map(camera.unproject).map(x => (x.x, x.y)).unzip
 
       world.findFixtures(coordsX.min, coordsY.min, coordsX.max, coordsY.max)
