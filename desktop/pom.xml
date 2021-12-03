@@ -8,9 +8,9 @@
 		<version>1.0-SNAPSHOT</version>
 	</parent>
 
-	<artifactId>test-desktop</artifactId>
+	<artifactId>desktop</artifactId>
 	<packaging>jar</packaging>
-	<name>Test desktop</name>
+	<name>Desktop</name>
 
 	<properties>
 		<mainClass>com.aivean.DesktopApplication</mainClass>
