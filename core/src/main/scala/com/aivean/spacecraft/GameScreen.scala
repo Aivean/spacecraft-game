@@ -162,21 +162,28 @@ object GameScreen extends ScreenAdapter {
     drawHints()
 
     if (Gdx.input.isTouched) {
-      val p = camera.unproject((Gdx.input.getX, Gdx.input.getY, 0))
+      val p: Vector2 = camera.unproject((Gdx.input.getX, Gdx.input.getY, 0))
       val sp = ship.body.getWorldCenter
-      world.rayClosest(sp, p, _.getBody != ship.body).foreach {
+
+      p.sub(sp).nor().scl(1000).add(sp)
+      shapes.setProjectionMatrix(camera.combined)
+      shapes.begin(ShapeType.Line)
+      shapes.identity()
+
+      val body = world.rayClosest(sp, p, _.getBody != ship.body)
+
+      body.foreach {
         case (f, p) =>
-          shapes.setProjectionMatrix(camera.combined)
-          shapes.begin(ShapeType.Line)
           shapes.setColor(Color.RED)
           shapes.identity()
-
-          shapes.setColor(Color.YELLOW)
-          shapes.line(sp, p)
           shapes.circle(p.x, p.y, 0.1f, 6)
           breaks += Break(Seq(p), f, 1f)
-          shapes.end()
       }
+
+      shapes.setColor(Color.YELLOW)
+      shapes.line(sp, body.map(_._2).getOrElse(p))
+
+      shapes.end()
     }
 
     processBreaks(delta)
