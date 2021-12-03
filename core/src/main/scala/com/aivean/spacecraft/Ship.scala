@@ -48,6 +48,10 @@ object Ship {
     override type Self = this.type
   }
 
+  class Laser(val force: Float, maxDurability: Float) extends Cell(maxDurability) {
+    override type Self = this.type
+  }
+
   object ShipRenderer {
     /**
      * Renders the given cell using ShapeRenderer
@@ -71,6 +75,10 @@ object Ship {
             shape.setColor(Color.RED)
             shape.triangle(0.3f, -0.5f, 0, -3f, -0.3f, -0.5f)
           }
+        case l: Laser =>
+          shape.setColor(Color.YELLOW)
+          shape.set(ShapeType.Filled)
+          shape.triangle(-0.2f, -0.5f, 0f, 0.5f, 0.2f, -0.5f)
       }
     }
   }
@@ -93,9 +101,11 @@ object Ship {
           f.shape = p
         case t: Thruster =>
           val p = new PolygonShape()
-          p.set(Array[Vector2]((0, 0.5), (-0.5, -0.5), (0.5, -0.5)).map {
-            case v => v.cpy().add(x, y)
-          })
+          p.set(Array[Vector2]((0, 0.5), (-0.5, -0.5), (0.5, -0.5)).map(_.cpy().add(x, y)))
+          f.shape = p
+        case l: Laser =>
+          val p = new PolygonShape()
+          p.set(Array[Vector2]((0, 0.5), (-0.2, -0.5), (0.2, -0.5)).map(_.cpy().add(x, y)))
           f.shape = p
       }
       f

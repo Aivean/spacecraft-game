@@ -1,7 +1,7 @@
 package com.aivean.spacecraft
 
 import com.aivean.StageScreen
-import com.aivean.spacecraft.Ship.{Cell, Hull, Thruster}
+import com.aivean.spacecraft.Ship.{Cell, Hull, Laser, Thruster}
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.graphics.Pixmap.Format
@@ -22,38 +22,55 @@ object ConstructorScreen extends StageScreen {
   private val shape = new ShapeRenderer()
   private val cellSize = 30
 
-  sealed trait CellType
+  sealed trait CellType {
+    def name: String
 
-  object CellType {
-    case object Hull extends CellType
+    def cell: Cell
 
-    case object Thruster extends CellType
+    def cellFactory: Cell = cell.clone()
   }
 
-  val shipCompFactory = Map[CellType, Cell](
-    CellType.Hull -> new Hull(100),
-    CellType.Thruster -> new Thruster(20, 30)
-  )
-  var cursor: Option[CellType] = Some(CellType.Hull)
+  object CellType {
+    case object HULL extends CellType {
+      override val name: String = "Hull"
+      override val cell: Cell = new Hull(100)
+    }
+
+    case object THRUSTER extends CellType {
+      override val name: String = "Thruster"
+      override val cell: Cell = new Thruster(20, 30)
+    }
+
+    case object LASER extends CellType {
+      override val name: String = "Laser"
+      override val cell: Cell = new Laser(1f, 30)
+    }
+
+    val values = Seq(HULL, THRUSTER, LASER)
+  }
+
+  var cursor: Option[CellType] = Some(CellType.HULL)
 
   var cells: Map[(Int, Int), Ship.Cell] = Map(
-    (-1, -1) -> CellType.Hull,
-    (-1, -2) -> CellType.Hull,
-    (-1, -3) -> CellType.Thruster,
-    (-1, 0) -> CellType.Hull,
-    (-1, 1) -> CellType.Hull,
-    (-2, -1) -> CellType.Hull,
-    (-2, -2) -> CellType.Thruster,
-    (-2, 0) -> CellType.Hull,
-    (0, -1) -> CellType.Hull,
-    (0, -2) -> CellType.Hull,
-    (0, -3) -> CellType.Thruster,
-    (0, 0) -> CellType.Hull,
-    (0, 1) -> CellType.Hull,
-    (1, -1) -> CellType.Hull,
-    (1, -2) -> CellType.Thruster,
-    (1, 0) -> CellType.Hull
-  ).mapValues(shipCompFactory).mapValues(_.clone())
+    (-1, 2) -> CellType.LASER,
+    (0, 2) -> CellType.LASER,
+    (-1, -1) -> CellType.HULL,
+    (-1, -2) -> CellType.HULL,
+    (-1, -3) -> CellType.THRUSTER,
+    (-1, 0) -> CellType.HULL,
+    (-1, 1) -> CellType.HULL,
+    (-2, -1) -> CellType.HULL,
+    (-2, -2) -> CellType.THRUSTER,
+    (-2, 0) -> CellType.HULL,
+    (0, -1) -> CellType.HULL,
+    (0, -2) -> CellType.HULL,
+    (0, -3) -> CellType.THRUSTER,
+    (0, 0) -> CellType.HULL,
+    (0, 1) -> CellType.HULL,
+    (1, -1) -> CellType.HULL,
+    (1, -2) -> CellType.THRUSTER,
+    (1, 0) -> CellType.HULL
+  ).mapValues(_.cellFactory)
 
 
   private val skin = {
@@ -101,32 +118,32 @@ object ConstructorScreen extends StageScreen {
     }
 
     table.pad(40).padRight(20)
-    table.setSize(180, 280)
+    table.setSize(180, 160 + CellType.values.size * 40)
 
     table.add("Component Library").pad(10).align(Align.center)
     table.row()
     hr()
 
-    val labels: Map[Option[CellType], Actor] =
-      List(
-        "Hull" -> Some(CellType.Hull),
-        "Thruster" -> Some(CellType.Thruster),
-        "Eraser" -> None
-      ).map {
-        case (text, cellType) =>
-          val button = new TextButton(text, skin)
-          button.pad(10).padLeft(40).padRight(20)
+    val labels: Map[Option[CellType], Actor] = {
+      (CellType.values.map { ct =>
+        ct.name -> Some(ct)
+      } :+ ("Eraser" -> None))
+        .map {
+          case (text, cellType) =>
+            val button = new TextButton(text, skin)
+            button.pad(10).padLeft(40).padRight(20)
 
-          button.addListener(new ChangeListener() {
-            override def changed(event: ChangeEvent, actor: Actor): Unit = {
-              cursor = cellType
-              event.cancel()
-            }
-          })
-          val actor = table.add(button).align(Align.left).getActor
-          table.row()
-          cellType -> actor
-      }.toMap
+            button.addListener(new ChangeListener() {
+              override def changed(event: ChangeEvent, actor: Actor): Unit = {
+                cursor = cellType
+                event.cancel()
+              }
+            })
+            val actor = table.add(button).align(Align.left).getActor
+            table.row()
+            cellType -> actor
+        }.toMap
+    }
 
     hr()
 
@@ -163,7 +180,7 @@ object ConstructorScreen extends StageScreen {
       val key = (math.floor(w.x / cellSize).toInt, math.floor(w.y / cellSize).toInt)
 
       cursor match {
-        case Some(ct) => cells += key -> shipCompFactory(ct).clone()
+        case Some(ct) => cells += key -> ct.cellFactory
         case None => cells = cells - key
       }
     }
@@ -201,7 +218,7 @@ object ConstructorScreen extends StageScreen {
   def drawCellType(c: Option[CellType]): Unit = {
     c match {
       case Some(c) =>
-        Ship.ShipRenderer.render(shape, shipCompFactory(c))
+        Ship.ShipRenderer.render(shape, c.cellFactory)
       case None =>
         // draw cross (eraser)
         shape.setColor(Color.RED)

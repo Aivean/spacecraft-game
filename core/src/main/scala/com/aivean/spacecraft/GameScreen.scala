@@ -1,7 +1,7 @@
 package com.aivean.spacecraft
 
 import com.aivean.spacecraft.Model.Destructible
-import com.aivean.spacecraft.Ship.{Cell, CellUserData, Thruster}
+import com.aivean.spacecraft.Ship.{Cell, CellUserData, Laser, Thruster}
 import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
@@ -105,6 +105,8 @@ object GameScreen extends ScreenAdapter {
       def right = lr._2
     }
 
+    var lasers: Seq[CellUserData[Laser]] = _
+
     def forwardVector = Vector2.Y.cpy().rotateRad(body.getAngle)
   }
 
@@ -138,6 +140,10 @@ object GameScreen extends ScreenAdapter {
     ship.thrusters.all = ship.meta.cells.collect {
       case ud: CellUserData[Thruster] if ud.cell.isInstanceOf[Thruster] => ud
     }
+
+    ship.lasers = ship.meta.cells.collect {
+      case ud: CellUserData[Laser] if ud.cell.isInstanceOf[Laser] => ud
+    }
   }
 
   override def render(delta: Float): Unit = {
@@ -162,28 +168,35 @@ object GameScreen extends ScreenAdapter {
     drawHints()
 
     if (Gdx.input.isTouched) {
-      val p: Vector2 = camera.unproject((Gdx.input.getX, Gdx.input.getY, 0))
-      val sp = ship.body.getWorldCenter
 
-      p.sub(sp).nor().scl(1000).add(sp)
-      shapes.setProjectionMatrix(camera.combined)
-      shapes.begin(ShapeType.Line)
-      shapes.identity()
+      val cursorWorldP: Vector2 = camera.unproject((Gdx.input.getX, Gdx.input.getY, 0))
 
-      val body = world.rayClosest(sp, p, _.getBody != ship.body)
+      ship.lasers.foreach {
+        case laser if !laser.cell.detached =>
+          val sp = ship.body.getWorldPoint(laser.x, laser.y)
+          val p = cursorWorldP.cpy()
 
-      body.foreach {
-        case (f, p) =>
-          shapes.setColor(Color.RED)
+          p.sub(sp).nor().scl(1000).add(sp)
+          shapes.setProjectionMatrix(camera.combined)
+          shapes.begin(ShapeType.Line)
           shapes.identity()
-          shapes.circle(p.x, p.y, 0.1f, 6)
-          breaks += Break(Seq(p), f, 1f)
+
+          val body = world.rayClosest(sp, p, _.getBody != ship.body)
+
+          body.foreach {
+            case (f, p) =>
+              shapes.setColor(Color.RED)
+              shapes.identity()
+              shapes.circle(p.x, p.y, 0.1f, 6)
+              breaks += Break(Seq(p), f, 1f)
+          }
+
+          shapes.setColor(Color.YELLOW)
+          shapes.line(sp, body.map(_._2).getOrElse(p))
+
+          shapes.end()
+        case _ =>
       }
-
-      shapes.setColor(Color.YELLOW)
-      shapes.line(sp, body.map(_._2).getOrElse(p))
-
-      shapes.end()
     }
 
     processBreaks(delta)
