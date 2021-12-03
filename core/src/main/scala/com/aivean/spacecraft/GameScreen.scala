@@ -32,9 +32,9 @@ object GameScreen extends ScreenAdapter {
   font.getData.setScale(0.05f)
   font.setUseIntegerPositions(false);
 
-  val stars: Array[(Float, Float)] = (1 to 4000).map {
-    _ => (Random.nextFloat() * 200 - 100, Random.nextFloat() * 200 - 100)
-  }.toArray
+  val STAR_CHUNK_SIZE = 10
+  val STAR_CHUNK_N = 20
+  val STAR_PARALLAX = 0.5f
 
   def getDestructible(f: Fixture): Option[Destructible] = f.getUserData match {
     case null => None
@@ -253,12 +253,36 @@ object GameScreen extends ScreenAdapter {
     shapes.setColor(Color.WHITE)
     shapes.setProjectionMatrix(camera.combined)
 
-    stars.foreach {
-      case (x, y) if camera.frustum.pointInFrustum(x, y, 0) =>
-        shapes.point(x, y, 0)
-      case _ =>
+    shapes.setColor(Color.RED)
+    shapes.point((camera.position.x / STAR_CHUNK_SIZE).toInt * STAR_CHUNK_SIZE,
+      (camera.position.y / STAR_CHUNK_SIZE).toInt * STAR_CHUNK_SIZE, 0)
+
+    shapes.setColor(Color.WHITE)
+
+    val xpar = camera.position.x * STAR_PARALLAX
+    val ypar = camera.position.y * STAR_PARALLAX
+
+    val xbounds = ((camera.position.x - camera.viewportWidth / 2 - xpar) / STAR_CHUNK_SIZE - 0.5).floor.toInt to
+      ((camera.position.x + camera.viewportWidth / 2 - xpar) / STAR_CHUNK_SIZE + 0.5).ceil.toInt
+
+    val ybounds = ((camera.position.y - camera.viewportHeight / 2 - ypar) / STAR_CHUNK_SIZE - 0.5).floor.toInt to
+      ((camera.position.y + camera.viewportHeight / 2 - ypar) / STAR_CHUNK_SIZE + 0.5).ceil.toInt
+    for (x <- xbounds) {
+      for (y <- ybounds) {
+        drawStarsArea(x, y, xpar, ypar)
+      }
     }
+
     shapes.end()
+  }
+
+  def drawStarsArea(x: Int, y: Int, xpar: Float, ypar: Float): Unit = {
+    val rng = new Random(x ^ y)
+    for (_ <- 0 until STAR_CHUNK_N) {
+      val sx = (x + rng.nextFloat()) * STAR_CHUNK_SIZE + xpar
+      val sy = (y + rng.nextFloat()) * STAR_CHUNK_SIZE + ypar
+      shapes.point(sx, sy, 0)
+    }
   }
 
   def processBreaks(d: Float): Unit = {
